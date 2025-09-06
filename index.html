@@ -1,46 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My Photo Gallery</title>
   <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #111;
+      --shadow: 0 2px 8px rgba(0,0,0,.15);
+      --accent: #2563eb; /* nice blue for focus rings */
+    }
+
+    html, body { height: 100%; }
     body {
-      font-family: Arial, sans-serif;
       margin: 0;
-      padding: 20px;
-      background: #fafafa;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.5;
     }
-    h1 {
+
+    header {
+      padding: 24px 20px 8px;
       text-align: center;
-      margin-bottom: 30px;
     }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.25rem, 2.5vw + .5rem, 2rem);
+    }
+    .subtle { color: #555; font-size: .95rem; }
+
     .gallery {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 15px;
+      gap: 14px;
+      padding: 14px 20px 40px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
-    .gallery img {
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      background: #fff;
+    }
+
+    .card img {
+      display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: cover;
+      transition: transform .25s ease;
+    }
+
+    .card:hover img {
+      transform: scale(1.04);
+    }
+
+    /* Lightbox */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      display: none; /* toggled via JS */
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+
+    .lightbox.open { display: flex; }
+
+    .lightbox figure {
+      margin: 0;
+      max-width: min(92vw, 1400px);
+      max-height: 88vh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .lightbox img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
       border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      transition: transform 0.2s;
+      box-shadow: 0 6px 24px rgba(0,0,0,.35);
+      background: #111;
     }
-    .gallery img:hover {
-      transform: scale(1.05);
+
+    figcaption { color: #e5e7eb; text-align: center; font-size: .95rem; }
+
+    .controls {
+      position: fixed;
+      inset: 0;
+      pointer-events: none; /* let buttons be clickable, not the layer */
     }
+
+    .btn {
+      pointer-events: auto;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: rgba(255,255,255,.14);
+      color: #fff;
+      width: 44px; height: 44px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    .btn:hover { background: rgba(255,255,255,.24); }
+    .btn:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .btn.prev { left: 18px; }
+    .btn.next { right: 18px; }
+
+    .btn.close {
+      top: 20px; right: 20px; transform: none;
+      width: 40px; height: 40px;
+    }
+
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body>
-  <h1>My Photo Gallery</h1>
-  <div class="gallery">
-    <img src="photo1.jpg" alt="Photo 1">
-    <img src="photo2.jpg" alt="Photo 2">
-    <!-- Add up to 55 images like this -->
-    <!-- Example:
-    <img src="photo4.jpg" alt="Photo 4">
-    <img src="photo5.jpg" alt="Photo 5">
+  <header>
+    <h1>My Photo Gallery</h1>
+    <p class="subtle">Click any photo to view it larger. Use ←/→ keys or tap arrows to navigate. Press Esc to close.</p>
+  </header>
+
+  <main class="gallery" id="gallery">
+    <!--
+      Add up to 55 images. For best results, keep thumbnails ~1200px on the long edge.
+      If you have separate high-res files, set data-full to the high-res path.
+      Example: <img src="thumbs/p01.jpg" data-full="photos/p01_full.jpg" alt="…" />
     -->
+
+    <figure class="card">
+      <img src="photo1.jpg" alt="Photo 1" loading="lazy" data-full="photo1.jpg" />
+    </figure>
+
+    <figure class="card">
+      <img src="photo2.jpg" alt="Photo 2" loading="lazy" data-full="photo2.jpg" />
+    </figure>
+
+    <figure class="card">
+      <img src="photo3.jpg" alt="Photo 3" loading="lazy" data-full="photo3.jpg" />
+    </figure>
+
+    <!-- Duplicate <figure> blocks up to 55 items -->
+  </main>
+
+  <!-- Lightbox overlay -->
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-label="Image viewer">
+    <figure>
+      <img id="lightbox-img" alt="Expanded" />
+      <figcaption id="lightbox-caption"></figcaption>
+    </figure>
+    <div class="controls" aria-hidden="true">
+      <button class="btn prev" id="btn-prev" aria-label="Previous image" title="Previous">
+        <span aria-hidden="true">&#10094;</span>
+      </button>
+      <button class="btn next" id="btn-next" aria-label="Next image" title="Next">
+        <span aria-hidden="true">&#10095;</span>
+      </button>
+      <button class="btn close" id="btn-close" aria-label="Close viewer" title="Close">
+        <span aria-hidden="true">&#10005;</span>
+      </button>
+    </div>
   </div>
+
+  <script>
+    (function() {
+      const gallery = document.getElementById('gallery');
+      const lightbox = document.getElementById('lightbox');
+      const imgEl = document.getElementById('lightbox-img');
+      const captionEl = document.getElementById('lightbox-caption');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+      const btnClose = document.getElementById('btn-close');
+
+      /** Collect items */
+      const items = Array.from(gallery.querySelectorAll('img'));
+      let index = -1;
+
+      function openAt(i) {
+        if (i < 0 || i >= items.length) return;
+        index = i;
+        const src = items[i].getAttribute('data-full') || items[i].src;
+        imgEl.src = src;
+        captionEl.textContent = items[i].alt || '';
+        lightbox.classList.add('open');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function close() {
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        imgEl.removeAttribute('src');
+        document.body.style.overflow = '';
+        index = -1;
+      }
+
+      function next() { if (items.length) openAt((index + 1) % items.length); }
+      function prev() { if (items.length) openAt((index - 1 + items.length) % items.length); }
+
+      /* Click to open */
+      items.forEach((img, i) => {
+        img.style.cursor = 'zoom-in';
+        img.addEventListener('click', () => openAt(i));
+        img.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') openAt(i); });
+        img.tabIndex = 0; // make keyboard focusable
+      });
+
+      /* Controls */
+      btnNext.addEventListener('click', next);
+      btnPrev.addEventListener('click', prev);
+      btnClose.addEventListener('click', close);
+
+      /* Close when clicking dark backdrop (but not the image) */
+      lightbox.addEventListener('click', (e) => {
+        const figure = lightbox.querySelector('figure');
+        if (!figure.contains(e.target)) close();
+      });
+
+      /* Keyboard navigation */
+      document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowRight') next();
+        else if (e.key === 'ArrowLeft') prev();
+      });
+
+      /* Basic swipe support */
+      let touchStartX = 0;
+      imgEl.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].clientX; }, {passive:true});
+      imgEl.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 40) { dx < 0 ? next() : prev(); }
+      });
+    })();
+  </script>
 </body>
 </html>
